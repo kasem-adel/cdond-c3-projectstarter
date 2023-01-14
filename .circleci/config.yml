@@ -320,8 +320,8 @@ workflows:
       #     requires: [build-backend]
       # - scan-frontend:
       #     requires: [build-frontend]
-      - deploy-infrastructure:
-          requires: [build-frontend,build-backend]
+      - deploy-infrastructure
+          # requires: [build-frontend,build-backend]
           # filters:
           #   branches:
           #     only: [test-feature-branch]
