@@ -175,40 +175,72 @@ jobs:
 
   configure-infrastructure:
     docker:
-      - image : python3.7-alpine3.16
+      - image: python:3.7-alpine3.16
     steps:
-      # Checkout code from git
-      # Add ssh keys with fingerprint
-      # attach workspace
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - '47:8e:31:d6:36:43:79:cb:50:42:56:98:d5:f6:04:17'
       - run:
           name: Install dependencies
           command: |
-            # Your code here
-            exit 1
+            apk add --update --no-cache tar gzip ansible aws-cli
+      - attach_workspace:
+          at: ~/
       - run:
           name: Configure server
           command: |
-            # Your code here
-            exit 1
-      # Here's where you will add some code to rollback on failure      
+            # add environment variables to server
+            echo ENVIRONMENT=production > backend/.env
+            echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> backend/.env
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> backend/.env
+            echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> backend/.env
+            echo TYPEORM_HOST=$TYPEORM_HOST >> backend/.env
+            echo TYPEORM_MIGRATIONS=$TYPEORM_MIGRATIONS >> backend/.env
+            echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> backend/.env
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> backend/.env
+            echo TYPEORM_PORT=$TYPEORM_PORT >> backend/.env
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> backend/.env
+            cat backend/.env
+            cd .circleci/ansible
+            ansible-playbook -i inventory.txt configure-server.yml
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/backend
+      - destroy-environment:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}     
 
-  # run-migrations:
-  #   docker:
-  #     # Docker image here that supports NodeJS
-  #   steps:
-  #     # Checkout code from git
-  #     - run:
-  #         name: Run migrations
-  #         command: |
-  #           # Your code here
-  #           exit 1
-  #     - run:
-  #         name: Send migration results to memstash
-  #         command: |
-  #           # Your code here
-  #           exit 1
-  #    # Here's where you will add some code to rollback on failure      
-
+  run-migrations:
+    docker:
+      - image: circleci/node:13.8.0 # safest to use to avoid migration errors
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            sudo apt install -y tar gzip curl
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -qq awscliv2.zip
+            sudo ./aws/install
+      - restore_cache:
+          keys: [backend-build]
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Run migrations
+          command: |
+            cd backend
+            npm run migrations >> migrations.txt
+      - run:
+          name: Send migration results to kvdb
+          command: |
+            if grep -q "success" ~/project/backend/migrations.txt
+            then
+              curl --insecure https://kvdb.io/ViWzkdySLpmD9TMMzU5Fzq/migration_${CIRCLE_WORKFLOW_ID:0:7} -d '1'
+            fi
+      - destroy-environment:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
   # deploy-frontend:
   #   docker:
   #     # Docker image here that supports AWS CLI
@@ -318,15 +350,15 @@ workflows:
       #     requires: [build-backend]
       # - scan-frontend:
       #     requires: [build-frontend]
-      - deploy-infrastructure:
-          requires: [build-frontend,build-backend]
+      - deploy-infrastructure
+          # requires: [build-frontend,build-backend]
           # filters:
           #   branches:
           #     only: [test-feature-branch]
-      # - configure-infrastructure:
-      #     requires: [deploy-infrastructure]
-      # - run-migrations:
-      #     requires: [configure-infrastructure]
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
+      - run-migrations:
+          requires: [configure-infrastructure]
       # - deploy-frontend:
       #     requires: [run-migrations]
       # - deploy-backend:
