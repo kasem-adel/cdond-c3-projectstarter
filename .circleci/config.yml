@@ -194,9 +194,10 @@ jobs:
 
   run-migrations:
     docker:
-      - image: circleci/node:13.8.0 # safest to use to avoid migration errors
+      - image: jruby:9.3
     steps:
-      - checkout
+      - run: sudo apt-get update && sudo apt-get install -y git sudo tar
+      
       - run:
           name: Install dependencies
           command: |
