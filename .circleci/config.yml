@@ -200,8 +200,7 @@ jobs:
       - restore_cache:
           keys: [backend-build-cache]
       - attach_workspace:
-          at: .
-      - create-dotenv-file
+          at: ~/
       - run:
           name: Run migrations
           command: |
