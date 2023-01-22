@@ -12,7 +12,6 @@ commands:
     parameters:
       workflow_id:
           type: string
-      # default: ${CIRCLECI_WORKFLOW_ID:0:7}
     
     steps:
       - run:
@@ -173,7 +172,6 @@ jobs:
           workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
           
-      # Here's where you will add some code to rollback on failure      
 
   configure-infrastructure:
     docker:
@@ -321,8 +319,7 @@ jobs:
           name: Install dependencies
           command: |
             apk add --update --no-cache curl aws-cli nodejs npm
-      # - attach_workspace:
-      #     at: ~/
+      
       - run:
           name: Backend smoke test
           command: |
